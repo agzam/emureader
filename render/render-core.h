@@ -85,6 +85,9 @@ typedef struct
 	fz_outline *outline;
 	float frame_scale; // Emacs' frame-scale-factor
 	int invert;
+	int tint;	// map black and white to tint_black and tint_white
+	int tint_black; // 0xRRGGBB
+	int tint_white; // 0xRRGGBB
 
 	atomic_int active_jobs;
 	bool is_reloading;

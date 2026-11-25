@@ -21,3 +21,9 @@
 #include "render-core.h"
 
 emacs_value emacs_doc_invert(emacs_env *env, ptrdiff_t nargs, emacs_value *args, void *data);
+void set_doc_tint(emacs_env *env, DocState *doc_state, emacs_value black,
+		  emacs_value white);
+emacs_value emacs_doc_tint(emacs_env *env, ptrdiff_t nargs,
+			   emacs_value *args, void *data);
+void tint_pixmap_keep_hue(fz_context *ctx, fz_pixmap *pixmap, int black,
+			  int white);

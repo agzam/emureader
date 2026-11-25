@@ -107,6 +107,7 @@
 (declare-function emureader-dyn--goto-page "ext:emureader-dyn.so" (page))
 (declare-function emureader-dyn--scale-page "ext:emureader-dyn.so" (factor))
 (declare-function emureader-dyn--doc-invert "ext:emureader-dyn.so" (invert))
+(declare-function emureader-dyn--doc-tint "ext:emureader-dyn.so" (black white))
 (declare-function emureader-dyn--rotate-page "ext:emureader-dyn.so" (degree))
 (declare-function emureader-dyn--window-create "ext:emureader-dyn.so" (window))
 (declare-function emureader-dyn--window-close "ext:emureader-dyn.so" (window))
@@ -1015,6 +1016,49 @@ Keybindings:
 
 (define-globalized-minor-mode emureader-global-dark-mode
   emureader-dark-mode emureader-dark-mode)
+
+(defvar-local emureader-tint-colors nil
+  "Colors black and white render in, a cons of 0xRRGGBB integers, or nil.
+The module reads it on every load, so a reloaded document keeps them.")
+
+(defun emureader--color-rgb (color)
+  "COLOR as a 0xRRGGBB integer."
+  (pcase-let ((`(,r ,g ,b) (color-values color)))
+    (logior (ash (ash r -8) 16) (ash (ash g -8) 8) (ash b -8))))
+
+(define-minor-mode emureader-themed-mode
+  "Render the document in the foreground and background of the `default' face.
+The colors follow theme changes.  Dark mode takes precedence while it is on."
+  :lighter " Themed"
+  (when (derived-mode-p 'emureader-mode)
+    (when emureader-themed-mode
+      (add-hook 'enable-theme-functions #'emureader--refresh-themed-buffers)
+      (add-hook 'disable-theme-functions #'emureader--refresh-themed-buffers))
+    (setq emureader-tint-colors
+	  (and emureader-themed-mode
+	       (cons (emureader--color-rgb (face-foreground 'default nil t))
+		     (emureader--color-rgb (face-background 'default nil t)))))
+    (when (bound-and-true-p emureader-current-doc-state-ptr)
+      (emureader-dyn--doc-tint (car emureader-tint-colors)
+			       (cdr emureader-tint-colors))
+      (emureader--redisplay-all-windows))))
+
+(defun emureader--refresh-themed-buffers (&rest _)
+  "Re-render the buffers in `emureader-themed-mode' in the current colors."
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (and emureader-themed-mode (derived-mode-p 'emureader-mode))
+	(emureader-themed-mode 1)))))
+
+(defun emureader--turn-on-themed-mode ()
+  "Turn on `emureader-themed-mode' in an `emureader-mode' buffer."
+  (when (derived-mode-p 'emureader-mode)
+    (emureader-themed-mode 1)))
+
+;;;###autoload
+(define-globalized-minor-mode emureader-global-themed-mode
+  emureader-themed-mode emureader--turn-on-themed-mode
+  :group 'emureader)
 
 (define-minor-mode emureader-presentation-mode
   "Toggle presentation view for current emureader document."

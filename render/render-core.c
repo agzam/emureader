@@ -183,6 +183,10 @@ draw_page_thread(void *arg)
 					fz_invert_pixmap_luminance(ctx, pixmap);
 					fz_gamma_pixmap(ctx, pixmap, 1 / 1.4f);
 				}
+			else if (doc_state->tint) // dark mode wins
+				tint_pixmap_keep_hue(ctx, pixmap,
+						     doc_state->tint_black,
+						     doc_state->tint_white);
 
 			local_imgh = (int)(fz_pixmap_height(ctx, pixmap) / frame_scale);
 			local_imgw = (int)(fz_pixmap_width(ctx, pixmap) / frame_scale);
@@ -479,6 +483,14 @@ emacs_load_doc(emacs_env *env, ptrdiff_t nargs, emacs_value *args, void *data)
 
     int invert = env->extract_integer(env, args[2]);
     doc_state->invert = invert ? 1 : 0;
+
+    /* A reload rebuilds the DocState; the buffer-local colors outlive it. */
+    emacs_value tint_sym = env->intern(env, "emureader-tint-colors");
+    emacs_value tint = env->funcall(env, env->intern(env, "symbol-value"), 1,
+                                    &tint_sym);
+    set_doc_tint(env, doc_state,
+                 env->funcall(env, env->intern(env, "car-safe"), 1, &tint),
+                 env->funcall(env, env->intern(env, "cdr-safe"), 1, &tint));
 
     win_state = init_win_state_ptr(env, doc_state, curr_win);
 
@@ -1169,6 +1181,13 @@ emacs_module_init(struct emacs_runtime *runtime)
 	register_module_func(env, emacs_doc_invert,
 			     "emureader-dyn--doc-invert", 1, 1,
 			     "Sets the document-local invert state for dark mode.");
+
+	register_module_func(env, emacs_doc_tint,
+			     "emureader-dyn--doc-tint", 2, 2,
+			     "Maps black to BLACK and white to WHITE, 0xRRGGBB "
+			     "integers, by lightness and keeping hues, in "
+			     "pages rendered from now on; nil for either "
+			     "turns the mapping off.");
 
 	register_module_func(env, emacs_doc_rotate,
 			     "emureader-dyn--rotate-page", 1, 1,
